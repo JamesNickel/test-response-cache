@@ -31,7 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         //
     })
-    ->withSchedule(function (Schedule $schedule): void {
-        $schedule->command('cache:update-routes')->hourly();
-    })
+    //->withSchedule(function (Schedule $schedule): void {
+    //    $schedule->command('cache:update-routes')->hourly();
+    //})
     ->create();
