@@ -9,6 +9,11 @@ class DataControllerA extends Controller
 {
     public function getData(Request $request): JsonResponse
     {
-        return response()->json(['message'=> 'This is the data from DataControllerA']);
+        try{
+            $value = random_int(100000, 999999);
+            return response()->json(['message'=> 'This is the data from DataControllerA', 'value'=> $value]);
+        }catch(\Exception $exception){
+            return response()->json(['message' => $exception->getMessage()], 500);
+        }
     }
 }

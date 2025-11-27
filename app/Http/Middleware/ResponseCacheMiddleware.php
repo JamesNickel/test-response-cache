@@ -48,9 +48,9 @@ class ResponseCacheMiddleware
             $cachedResponse['last_called_at'] = now()->timestamp;
 
             $ttl = config('responsecaching.response_cache.ttl_minutes') * 60;
+
             // Cache the response
             Cache::put($cacheKeyResponse, $cachedResponse, $ttl);
-
             $this->removeOldCachesIfNecessary($cacheKeyCachedRoutes, $cacheKeyResponse);
 
             return response($cachedResponse['content'], $cachedResponse['status'])
@@ -60,16 +60,24 @@ class ResponseCacheMiddleware
         return $next($request);
     }
 
-    private function isApiCacheable($cacheKeyCallCount): bool{
+    private function isApiCacheable($cacheKeyCallCount): bool
+    {
 
         $callCount = Cache::get($cacheKeyCallCount) ?? 0;
         $callCount++;
         Cache::put($cacheKeyCallCount, $callCount);
 
-        return $callCount > config('responsecaching.response_cache.threshold');
+        return $callCount >= config('responsecaching.response_cache.threshold');
     }
 
-    private function removeOldCachesIfNecessary($cacheKeyCachedRoutes, $cacheKeyResponse): void{
+    private function resetApiCallCount($cacheKeyResponse): void
+    {
+        $cacheKeyCallCount = str_replace('response_cache_response', 'response_cache_call_count', $cacheKeyResponse);
+        Cache::put($cacheKeyCallCount, 0);
+    }
+
+    private function removeOldCachesIfNecessary($cacheKeyCachedRoutes, $cacheKeyResponse): void
+    {
 
         $cachedRoutes = Cache::get($cacheKeyCachedRoutes) ?? [];
         if(!in_array($cacheKeyResponse, $cachedRoutes)){
@@ -77,10 +85,11 @@ class ResponseCacheMiddleware
         }
 
         if(count($cachedRoutes) > config('responsecaching.response_cache.max_routes')){
-            // One route must be removed from the cache
+            // One route MUST be removed from the cache
             $oldestTime = now()->timestamp;
             $oldestIndex = 0;
             foreach($cachedRoutes as $index => $routeKey){
+                //dump('Getting cache: ' . $routeKey);
                 $cachedResponse = Cache::get($routeKey);
                 if($cachedResponse['last_called_at'] < $oldestTime){
                     $oldestTime = $cachedResponse['last_called_at'];
@@ -89,7 +98,7 @@ class ResponseCacheMiddleware
             }
 
             Cache::forget($cachedRoutes[$oldestIndex]);
-
+            $this->resetApiCallCount($cachedRoutes[$oldestIndex]);
             unset($cachedRoutes[$oldestIndex]);
         }
         Cache::put($cacheKeyCachedRoutes, $cachedRoutes);

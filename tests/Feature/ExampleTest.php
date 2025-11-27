@@ -3,39 +3,48 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Sleep;
 use Tests\TestCase;
+use function PHPUnit\Framework\assertNotEmpty;
 
 class ExampleTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_returns_a_successful_response()
-    {
-        $response = $this->get(route('home'));
+    public function test_if_response_cache_works(){
 
-        $response->assertStatus(200);
-    }
+        $threshold = config('responsecaching.response_cache.threshold');
 
-    public function test_if_response_is_cached(){
+        $routes = ['/api/data-a', '/api/data-b', '/api/data-c'];
 
-        $responseA = $this->get('/api/data-a');
-        // TODO: assert response is not from cache
-        for($i = 0; $i < 5; $i++){
-            $responseA = $this->get('/api/data-a');
+        foreach($routes as $route){
+
+            for($i = 0; $i < $threshold; $i++){
+
+                $response = $this->get($route);
+                $responseObj = json_decode($response->getContent());
+                assertNotEmpty($responseObj->value);
+            }
+            $cachedResponse = $responseObj;
+
+            $response = $this->get($route);
+            $responseObj = json_decode($response->getContent());
+            assert($responseObj->value == $cachedResponse->value);
+
+            Sleep::for(1000)->milliseconds();
         }
-        // TODO: assert response is from cache
 
-        for($i = 0; $i < 5; $i++){
-            $responseB = $this->get('/api/data-b');
-        }
-        for($i = 0; $i < 5; $i++){
-            $responseC = $this->get('/api/data-c');
-        }
+        // Check if API cache is cleared for route '/api/data-a'
+        $response = $this->get('/api/data-a');
+        $responseObj1 = json_decode($response->getContent());
+        assertNotEmpty($responseObj1->value);
 
-        $responseA = $this->get('/api/data-a');
-        // TODO: assert response is not from cache
+        $response = $this->get('/api/data-a');
+        $responseObj2 = json_decode($response->getContent());
+        assertNotEmpty($responseObj2->value);
 
-        $responseA->assertStatus(200);
-
+        //dump($responseObj1->value);
+        //dump($responseObj2->value);
+        assert($responseObj1->value != $responseObj2->value);
     }
 }
